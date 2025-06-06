@@ -1,53 +1,53 @@
 package com.lendlink.controller;
 
-import java.io.IOException;
+import com.lendlink.dao.UserDao;
+import com.lendlink.model.User;
+import org.apache.log4j.Logger;
+
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import com.lendlink.util.DatabaseConnection;
+import java.io.IOException;
 
 @WebServlet("/login")
 public class LoginServlet extends HttpServlet {
-    private static final long serialVersionUID = 1L;
+    private static final Logger logger = Logger.getLogger(LoginServlet.class);
+    private UserDao userDao;
 
+    @Override
+    public void init() throws ServletException {
+        userDao = new UserDao();
+        logger.info("LoginServlet initialized");
+    }
+
+    @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        logger.info("Login attempt received");
+        
         String email = request.getParameter("email");
         String password = request.getParameter("password");
         
-        try (Connection conn = DatabaseConnection.getConnection()) {
-            String sql = "SELECT * FROM User WHERE email = ? AND password_hash = ?";
-            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                pstmt.setString(1, email);
-                pstmt.setString(2, password); // Note: In a real application, use proper password hashing
-                
-                try (ResultSet rs = pstmt.executeQuery()) {
-                    if (rs.next()) {
-                        // Login successful
-                        HttpSession session = request.getSession();
-                        session.setAttribute("userId", rs.getInt("user_id"));
-                        session.setAttribute("userName", rs.getString("name"));
-                        session.setAttribute("userRole", rs.getString("role"));
-                        
-                        response.sendRedirect("dashboard.jsp");
-                    } else {
-                        // Login failed
-                        request.setAttribute("error", "Invalid email or password");
-                        request.getRequestDispatcher("login.jsp").forward(request, response);
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            request.setAttribute("error", "Database error occurred");
+        logger.debug("Attempting login for email: " + email);
+
+        User user = userDao.getUserByEmailAndPassword(email, password);
+
+        if (user != null) {
+            HttpSession session = request.getSession();
+            session.setAttribute("userId", user.getUserId());
+            session.setAttribute("userName", user.getName());
+            session.setAttribute("userRole", user.getRole());
+            
+            logger.info("Login successful for user: " + user.getName());
+            response.sendRedirect("dashboard");
+        } else {
+            logger.warn("Login failed for email: " + email);
+            request.setAttribute("error", "Invalid email or password");
             request.getRequestDispatcher("login.jsp").forward(request, response);
         }
+        System.out.println("Test log message - " + new java.util.Date());
     }
 } 

@@ -7,7 +7,7 @@ import java.sql.SQLException;
 public class DatabaseConnection {
     private static final String URL = "jdbc:mysql://localhost:3306/lendlink";
     private static final String USER = "root";
-    private static final String PASSWORD = ""; // Add your MySQL password here
+    private static final String PASSWORD = "Domovoi.b05"; // Add your MySQL password here
 
     public static Connection getConnection() throws SQLException {
         try {

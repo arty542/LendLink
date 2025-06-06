@@ -4,7 +4,7 @@ public class User {
     private int userId;
     private String name;
     private String email;
-    private String password;
+    private String passwordHash;
     private String role;
     private String createdOn;
 
@@ -33,12 +33,12 @@ public class User {
         this.email = email;
     }
 
-    public String getPassword() {
-        return password;
+    public String getPasswordHash() {
+        return passwordHash;
     }
 
-    public void setPassword(String password) {
-        this.password = password;
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
     public String getRole() {

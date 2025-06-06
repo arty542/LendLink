@@ -32,10 +32,10 @@ echo Starting Tomcat...
 call "%CATALINA_HOME%\bin\startup.bat"
 
 echo Deployment complete! Wait a few seconds for Tomcat to deploy the application.
-echo Access the application at: http://localhost:8081/lendlink/
+echo Access the application at: http://localhost:8082/lendlink/
 echo.
 echo If you see a 404 error, please ensure:
-echo 1. Tomcat is running (check http://localhost:8081)
+echo 1. Tomcat is running (check http://localhost:8082)
 echo 2. The WAR file was copied successfully
 echo 3. Check Tomcat logs at: %CATALINA_HOME%\logs\catalina.out
 echo.
