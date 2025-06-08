@@ -1,7 +1,7 @@
 @echo off
 echo Stopping Tomcat processes...
 taskkill /F /IM java.exe /T 2>nul
-timeout /t 5 /nobreak
+timeout /t 3 /nobreak
 
 echo Cleaning Tomcat work directory...
 rmdir /S /Q "C:\Program Files\tomcat\work\Catalina" 2>nul

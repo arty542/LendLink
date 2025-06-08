@@ -7,16 +7,20 @@ public class LoanRequest {
     private int userId;
     private double amount;
     private int durationMonths;
+    private String purpose;
+    private String description;
     private String status;
     private Timestamp createdOn;
 
     public LoanRequest() {
     }
 
-    public LoanRequest(int userId, double amount, int durationMonths, String status) {
+    public LoanRequest(int userId, double amount, int durationMonths, String purpose, String description, String status) {
         this.userId = userId;
         this.amount = amount;
         this.durationMonths = durationMonths;
+        this.purpose = purpose;
+        this.description = description;
         this.status = status;
     }
 
@@ -50,6 +54,22 @@ public class LoanRequest {
 
     public void setDurationMonths(int durationMonths) {
         this.durationMonths = durationMonths;
+    }
+
+    public String getPurpose() {
+        return purpose;
+    }
+
+    public void setPurpose(String purpose) {
+        this.purpose = purpose;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     public String getStatus() {

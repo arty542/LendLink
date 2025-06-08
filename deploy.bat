@@ -5,7 +5,7 @@ set "PATH=%PATH%;C:\Program Files\maven\apache-maven-3.9.9\bin"
 
 echo Killing any running Tomcat process...
 taskkill /F /IM tomcat* /T 2>nul
-timeout /t 5 /nobreak
+timeout /t 3 /nobreak
 
 echo Building project...
 call mvn clean package

@@ -15,6 +15,8 @@ CREATE TABLE LoanRequest (
     user_id INT NOT NULL,
     amount DECIMAL(10, 2) NOT NULL,
     duration_months INT NOT NULL,
+    purpose ENUM('personal', 'business', 'education', 'home', 'other') NOT NULL,
+    description TEXT NOT NULL,
     status ENUM('open', 'funded', 'repaid', 'defaulted') DEFAULT 'open',
     created_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES User(user_id)

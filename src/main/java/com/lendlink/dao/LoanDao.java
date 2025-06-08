@@ -48,7 +48,8 @@ public class LoanDao {
     public boolean createLoanRequest(LoanRequest loanRequest) {
         logger.info("Attempting to create loan request - User ID: " + loanRequest.getUserId() + 
                    ", Amount: " + loanRequest.getAmount());
-        String sql = "INSERT INTO LoanRequest (user_id, amount, duration_months, status) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO LoanRequest (user_id, amount, duration_months, purpose, description, status) " +
+                    "VALUES (?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -56,7 +57,9 @@ public class LoanDao {
             pstmt.setInt(1, loanRequest.getUserId());
             pstmt.setDouble(2, loanRequest.getAmount());
             pstmt.setInt(3, loanRequest.getDurationMonths());
-            pstmt.setString(4, loanRequest.getStatus());
+            pstmt.setString(4, loanRequest.getPurpose());
+            pstmt.setString(5, loanRequest.getDescription());
+            pstmt.setString(6, loanRequest.getStatus());
 
             int rowsAffected = pstmt.executeUpdate();
             if (rowsAffected > 0) {
