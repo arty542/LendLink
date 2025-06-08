@@ -1,9 +1,13 @@
 package com.lendlink.model;
 
+import java.sql.Timestamp;
+
 public class Wallet {
     private int walletId;
     private int userId;
     private double balance;
+    private Timestamp createdAt;
+    private Timestamp updatedAt;
 
     public Wallet() {
     }
@@ -35,5 +39,21 @@ public class Wallet {
 
     public void setBalance(double balance) {
         this.balance = balance;
+    }
+
+    public Timestamp getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Timestamp createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Timestamp getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Timestamp updatedAt) {
+        this.updatedAt = updatedAt;
     }
 } 

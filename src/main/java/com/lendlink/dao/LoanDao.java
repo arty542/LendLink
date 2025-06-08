@@ -212,7 +212,6 @@ public class LoanDao {
             }
         } catch (SQLException e) {
             logger.error("Error getting total amount lent for user ID: " + userId, e);
-            e.printStackTrace();
         }
         logger.warn("No amount found or error occurred for user ID: " + userId);
         return 0.0;
@@ -221,13 +220,13 @@ public class LoanDao {
     public List<Activity> getRecentActivity(int userId) {
         logger.info("Getting recent activity for user ID: " + userId);
         List<Activity> activities = new ArrayList<>();
-        String sql = "SELECT t.transaction_id, t.amount, t.timestamp, t.type, " +
+        String sql = "SELECT t.transaction_id, t.amount, t.created_on, t.type, " +
                     "u1.name as from_user_name, u2.name as to_user_name " +
                     "FROM Transaction t " +
                     "JOIN User u1 ON t.from_user_id = u1.user_id " +
                     "JOIN User u2 ON t.to_user_id = u2.user_id " +
                     "WHERE t.from_user_id = ? OR t.to_user_id = ? " +
-                    "ORDER BY t.timestamp DESC LIMIT 10";
+                    "ORDER BY t.created_on DESC LIMIT 10";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -240,7 +239,7 @@ public class LoanDao {
                     activities.add(new Activity(
                         rs.getInt("transaction_id"),
                         rs.getDouble("amount"),
-                        rs.getTimestamp("timestamp"),
+                        rs.getTimestamp("created_on"),
                         rs.getString("type"),
                         rs.getString("from_user_name"),
                         rs.getString("to_user_name")
@@ -323,25 +322,24 @@ public class LoanDao {
 
     public boolean updateLoanStatus(int loanId, String status) {
         logger.info("Attempting to update loan status - Loan ID: " + loanId + ", New Status: " + status);
-        String sql = "UPDATE Loan SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE loan_id = ?";
-
+        String sql = "UPDATE LoanRequest SET status = ? WHERE loan_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setString(1, status);
-            pstmt.setInt(2, loanId);
-
-            int rowsAffected = pstmt.executeUpdate();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setString(1, status);
+            stmt.setInt(2, loanId);
+            
+            int rowsAffected = stmt.executeUpdate();
             if (rowsAffected > 0) {
-                logger.info("Successfully updated loan status");
+                logger.info("Successfully updated loan status to: " + status);
                 return true;
             } else {
-                logger.warn("Failed to update loan status - no rows affected");
+                logger.warn("No loan found with ID: " + loanId);
                 return false;
             }
         } catch (SQLException e) {
             logger.error("Error updating loan status", e);
-            return false;
+            throw new RuntimeException("Failed to update loan status", e);
         }
     }
 
@@ -377,5 +375,182 @@ public class LoanDao {
             logger.error("Error getting loan by ID: " + loanId, e);
             return null;
         }
+    }
+
+    public List<LoanRequest> getAvailableLoanRequests(Double minAmount, Double maxAmount, 
+            Integer duration, String purpose, String sortBy) {
+        logger.info("Getting available loan requests with filters");
+        List<LoanRequest> loanRequests = new ArrayList<>();
+        
+        StringBuilder sql = new StringBuilder(
+            "SELECT * FROM LoanRequest WHERE status = 'open'");
+        
+        List<Object> params = new ArrayList<>();
+        
+        if (minAmount != null) {
+            sql.append(" AND amount >= ?");
+            params.add(minAmount);
+        }
+        
+        if (maxAmount != null) {
+            sql.append(" AND amount <= ?");
+            params.add(maxAmount);
+        }
+        
+        if (duration != null) {
+            sql.append(" AND duration_months = ?");
+            params.add(duration);
+        }
+        
+        if (purpose != null && !purpose.isEmpty()) {
+            sql.append(" AND purpose = ?");
+            params.add(purpose);
+        }
+        
+        // Add sorting
+        if (sortBy != null) {
+            switch (sortBy) {
+                case "oldest":
+                    sql.append(" ORDER BY created_on ASC");
+                    break;
+                case "amount_asc":
+                    sql.append(" ORDER BY amount ASC");
+                    break;
+                case "amount_desc":
+                    sql.append(" ORDER BY amount DESC");
+                    break;
+                default: // newest
+                    sql.append(" ORDER BY created_on DESC");
+            }
+        } else {
+            sql.append(" ORDER BY created_on DESC");
+        }
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
+
+            // Set parameters
+            for (int i = 0; i < params.size(); i++) {
+                pstmt.setObject(i + 1, params.get(i));
+            }
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    LoanRequest loanRequest = new LoanRequest();
+                    loanRequest.setLoanId(rs.getInt("loan_id"));
+                    loanRequest.setUserId(rs.getInt("user_id"));
+                    loanRequest.setAmount(rs.getDouble("amount"));
+                    loanRequest.setDurationMonths(rs.getInt("duration_months"));
+                    loanRequest.setPurpose(rs.getString("purpose"));
+                    loanRequest.setDescription(rs.getString("description"));
+                    loanRequest.setStatus(rs.getString("status"));
+                    loanRequest.setCreatedOn(rs.getTimestamp("created_on"));
+                    loanRequests.add(loanRequest);
+                }
+            }
+            
+            logger.info("Found " + loanRequests.size() + " available loan requests");
+        } catch (SQLException e) {
+            logger.error("Error getting available loan requests", e);
+        }
+        
+        return loanRequests;
+    }
+
+    public boolean fundLoan(int loanId, int lenderId, double amount) {
+        logger.info("Attempting to fund loan - Loan ID: " + loanId + ", Lender ID: " + lenderId);
+        String sql = "INSERT INTO Funding (loan_id, lender_id, amount_funded) VALUES (?, ?, ?)";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, loanId);
+            pstmt.setInt(2, lenderId);
+            pstmt.setDouble(3, amount);
+
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                logger.info("Successfully funded loan");
+                return true;
+            } else {
+                logger.warn("Failed to fund loan - no rows affected");
+                return false;
+            }
+        } catch (SQLException e) {
+            logger.error("Error funding loan", e);
+            return false;
+        }
+    }
+
+    public List<LoanRequest> getAvailableLoans(Double minAmount, Double maxAmount, Integer duration, String purpose, String sortBy) {
+        List<LoanRequest> loans = new ArrayList<>();
+        String sql = "SELECT * FROM LoanRequest WHERE status = 'open'";
+        List<Object> params = new ArrayList<>();
+        
+        if (minAmount != null) {
+            sql += " AND amount >= ?";
+            params.add(minAmount);
+        }
+        if (maxAmount != null) {
+            sql += " AND amount <= ?";
+            params.add(maxAmount);
+        }
+        if (duration != null) {
+            sql += " AND duration_months = ?";
+            params.add(duration);
+        }
+        if (purpose != null && !purpose.isEmpty()) {
+            sql += " AND purpose LIKE ?";
+            params.add("%" + purpose + "%");
+        }
+        
+        if (sortBy != null && !sortBy.isEmpty()) {
+            sql += " ORDER BY " + sortBy;
+        } else {
+            sql += " ORDER BY created_on DESC";
+        }
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            for (int i = 0; i < params.size(); i++) {
+                stmt.setObject(i + 1, params.get(i));
+            }
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                LoanRequest loan = new LoanRequest();
+                loan.setLoanId(rs.getInt("loan_id"));
+                loan.setUserId(rs.getInt("user_id"));
+                loan.setAmount(rs.getDouble("amount"));
+                loan.setDurationMonths(rs.getInt("duration_months"));
+                loan.setPurpose(rs.getString("purpose"));
+                loan.setStatus(rs.getString("status"));
+                loan.setCreatedOn(rs.getTimestamp("created_on"));
+                loans.add(loan);
+            }
+        } catch (SQLException e) {
+            logger.error("Error getting available loans", e);
+        }
+        return loans;
+    }
+
+    public int getAvailableLoansCount() {
+        String sql = "SELECT COUNT(*) as count FROM LoanRequest WHERE status = 'open'";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            
+            if (rs.next()) {
+                return rs.getInt("count");
+            }
+        } catch (SQLException e) {
+            logger.error("Error getting available loans count", e);
+        }
+        return 0;
+    }
+
+    public double getTotalAmountFunded(int userId) {
+        // This method is redundant with getTotalAmountLent
+        // Using getTotalAmountLent instead
+        return getTotalAmountLent(userId);
     }
 } 

@@ -1,196 +1,169 @@
 package com.lendlink.dao;
 
-import com.lendlink.model.Wallet;
 import com.lendlink.util.DatabaseConnection;
+import com.lendlink.model.Transaction;
 import org.apache.log4j.Logger;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.sql.Types;
 
 public class WalletDao {
     private static final Logger logger = Logger.getLogger(WalletDao.class);
 
-    public Wallet getWalletByUserId(int userId) {
-        logger.info("Attempting to get wallet for user ID: " + userId);
-        Wallet wallet = null;
-        String sql = "SELECT wallet_id, user_id, balance FROM Wallet WHERE user_id = ?";
+    public double getBalance(int userId) {
+        logger.info("Getting balance for user ID: " + userId);
+        String sql = "SELECT balance FROM Wallet WHERE user_id = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setInt(1, userId);
-
-            try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    wallet = new Wallet();
-                    wallet.setWalletId(rs.getInt("wallet_id"));
-                    wallet.setUserId(rs.getInt("user_id"));
-                    wallet.setBalance(rs.getDouble("balance"));
-                    logger.info("Wallet found for user ID: " + userId + " with balance: " + wallet.getBalance());
-                } else {
-                    logger.info("No wallet found for user ID: " + userId);
-                }
-            }
-        } catch (SQLException e) {
-            logger.error("Error getting wallet for user ID: " + userId, e);
-        }
-        return wallet;
-    }
-
-    public boolean createWallet(Wallet wallet) {
-        logger.info("Attempting to create wallet for user ID: " + wallet.getUserId());
-        String sql = "INSERT INTO Wallet (user_id, balance) VALUES (?, ?)";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setInt(1, wallet.getUserId());
-            pstmt.setDouble(2, wallet.getBalance());
-
-            int rowsAffected = pstmt.executeUpdate();
-            if (rowsAffected > 0) {
-                logger.info("Successfully created wallet for user ID: " + wallet.getUserId());
-                return true;
-            } else {
-                logger.warn("Failed to create wallet for user ID: " + wallet.getUserId());
-                return false;
-            }
-        } catch (SQLException e) {
-            logger.error("Error creating wallet for user ID: " + wallet.getUserId(), e);
-            return false;
-        }
-    }
-
-    public boolean updateBalance(int walletId, double newBalance) {
-        logger.info("Attempting to update balance for wallet ID: " + walletId + " to: " + newBalance);
-        String sql = "UPDATE Wallet SET balance = ? WHERE wallet_id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setDouble(1, newBalance);
-            pstmt.setInt(2, walletId);
-
-            int rowsAffected = pstmt.executeUpdate();
-            if (rowsAffected > 0) {
-                logger.info("Successfully updated balance for wallet ID: " + walletId);
-                return true;
-            } else {
-                logger.warn("Failed to update balance for wallet ID: " + walletId);
-                return false;
-            }
-        } catch (SQLException e) {
-            logger.error("Error updating balance for wallet ID: " + walletId, e);
-            return false;
-        }
-    }
-
-    public double getWalletBalance(int userId) {
-        logger.info("Getting wallet balance for user ID: " + userId);
-        String sql = "SELECT " +
-                    "COALESCE(SUM(CASE WHEN to_user_id = ? THEN amount ELSE -amount END), 0) as balance " +
-                    "FROM Transaction " +
-                    "WHERE from_user_id = ? OR to_user_id = ?";
-
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setInt(1, userId);
-            pstmt.setInt(2, userId);
-            pstmt.setInt(3, userId);
 
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
                     double balance = rs.getDouble("balance");
-                    logger.info("Wallet balance for user ID " + userId + ": " + balance);
+                    logger.info("Balance for user ID " + userId + ": " + balance);
                     return balance;
                 }
             }
         } catch (SQLException e) {
-            logger.error("Error getting wallet balance for user ID: " + userId, e);
+            logger.error("Error getting balance for user ID: " + userId, e);
         }
-        logger.warn("No wallet balance found or error occurred for user ID: " + userId);
         return 0.0;
     }
 
-    public boolean recordTransaction(int fromUserId, int toUserId, double amount, String type) {
-        logger.info("Recording transaction - From: " + fromUserId + ", To: " + toUserId + 
-                   ", Amount: " + amount + ", Type: " + type);
-        String sql = "INSERT INTO Transaction (from_user_id, to_user_id, amount, type) VALUES (?, ?, ?, ?)";
+    public boolean createWallet(int userId) {
+        logger.info("Creating wallet for user ID: " + userId);
+        String sql = "INSERT INTO Wallet (user_id, balance) VALUES (?, 0.00)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            pstmt.setInt(1, fromUserId);
-            pstmt.setInt(2, toUserId);
-            pstmt.setDouble(3, amount);
-            pstmt.setString(4, type);
+            pstmt.setInt(1, userId);
+            int rowsAffected = pstmt.executeUpdate();
+            
+            if (rowsAffected > 0) {
+                logger.info("Successfully created wallet for user ID: " + userId);
+                return true;
+            }
+        } catch (SQLException e) {
+            logger.error("Error creating wallet for user ID: " + userId, e);
+        }
+        return false;
+    }
+
+    public boolean deposit(int userId, double amount) {
+        if (amount <= 0) {
+            logger.warn("Invalid deposit amount: " + amount);
+            return false;
+        }
+
+        logger.info("Processing deposit for user ID: " + userId + ", amount: " + amount);
+        String sql = "UPDATE Wallet SET balance = balance + ? WHERE user_id = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setDouble(1, amount);
+            pstmt.setInt(2, userId);
 
             int rowsAffected = pstmt.executeUpdate();
             if (rowsAffected > 0) {
-                logger.info("Successfully recorded transaction");
+                // Record the deposit transaction
+                recordTransaction(0, userId, amount, "deposit");
+                logger.info("Successfully processed deposit for user ID: " + userId);
                 return true;
-            } else {
-                logger.warn("Failed to record transaction - no rows affected");
-                return false;
             }
+        } catch (SQLException e) {
+            logger.error("Error processing deposit for user ID: " + userId, e);
+        }
+        return false;
+    }
+
+    public boolean withdraw(int userId, double amount) {
+        if (amount <= 0) {
+            logger.warn("Invalid withdrawal amount: " + amount);
+            return false;
+        }
+
+        logger.info("Processing withdrawal for user ID: " + userId + ", amount: " + amount);
+        String sql = "UPDATE Wallet SET balance = balance - ? WHERE user_id = ? AND balance >= ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setDouble(1, amount);
+            pstmt.setInt(2, userId);
+            pstmt.setDouble(3, amount);
+
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                // Record the withdrawal transaction
+                recordTransaction(userId, 0, amount, "withdrawal");
+                logger.info("Successfully processed withdrawal for user ID: " + userId);
+                return true;
+            }
+        } catch (SQLException e) {
+            logger.error("Error processing withdrawal for user ID: " + userId, e);
+        }
+        return false;
+    }
+
+    public void recordTransaction(int fromUserId, int toUserId, double amount, String type) {
+        String sql = "INSERT INTO Transaction (from_user_id, to_user_id, amount, type, created_on) VALUES (?, ?, ?, ?, NOW())";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            // Handle system transactions (deposits/withdrawals)
+            if (fromUserId == 0) {
+                stmt.setNull(1, Types.INTEGER);  // from_user_id is NULL for deposits
+            } else {
+                stmt.setInt(1, fromUserId);
+            }
+            
+            if (toUserId == 0) {
+                stmt.setNull(2, Types.INTEGER);  // to_user_id is NULL for withdrawals
+            } else {
+                stmt.setInt(2, toUserId);
+            }
+            
+            stmt.setDouble(3, amount);
+            stmt.setString(4, type);
+            stmt.executeUpdate();
+            logger.info("Transaction recorded successfully - From: " + fromUserId + ", To: " + toUserId + ", Amount: " + amount + ", Type: " + type);
         } catch (SQLException e) {
             logger.error("Error recording transaction", e);
-            return false;
+            throw new RuntimeException("Failed to record transaction", e);
         }
     }
 
-    public boolean recordFunding(int loanId, int lenderId, double amount) {
-        logger.info("Recording funding - Loan ID: " + loanId + ", Lender ID: " + lenderId + 
-                   ", Amount: " + amount);
-        String sql = "INSERT INTO Funding (loan_id, lender_id, amount_funded) VALUES (?, ?, ?)";
-
+    public List<Transaction> getRecentTransactions(int userId, int limit) {
+        List<Transaction> transactions = new ArrayList<>();
+        String sql = "SELECT * FROM Transaction WHERE from_user_id = ? OR to_user_id = ? ORDER BY created_on DESC LIMIT ?";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setInt(1, loanId);
-            pstmt.setInt(2, lenderId);
-            pstmt.setDouble(3, amount);
-
-            int rowsAffected = pstmt.executeUpdate();
-            if (rowsAffected > 0) {
-                logger.info("Successfully recorded funding");
-                return true;
-            } else {
-                logger.warn("Failed to record funding - no rows affected");
-                return false;
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, userId);
+            stmt.setInt(2, userId);
+            stmt.setInt(3, limit);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                Transaction t = new Transaction();
+                t.setTransactionId(rs.getInt("transaction_id"));
+                t.setFromUserId(rs.getInt("from_user_id"));
+                t.setToUserId(rs.getInt("to_user_id"));
+                t.setAmount(rs.getDouble("amount"));
+                t.setType(rs.getString("type"));
+                t.setCreatedOn(rs.getTimestamp("created_on"));
+                transactions.add(t);
             }
         } catch (SQLException e) {
-            logger.error("Error recording funding", e);
-            return false;
+            logger.error("Error getting recent transactions", e);
         }
-    }
-
-    public boolean recordRepayment(int loanId, double amountDue, double amountPaid) {
-        logger.info("Recording repayment - Loan ID: " + loanId + 
-                   ", Amount Due: " + amountDue + ", Amount Paid: " + amountPaid);
-        String sql = "INSERT INTO Repayment (loan_id, due_date, amount_due, amount_paid, status) " +
-                    "VALUES (?, CURRENT_DATE, ?, ?, ?)";
-
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setInt(1, loanId);
-            pstmt.setDouble(2, amountDue);
-            pstmt.setDouble(3, amountPaid);
-            pstmt.setString(4, amountPaid >= amountDue ? "paid" : "pending");
-
-            int rowsAffected = pstmt.executeUpdate();
-            if (rowsAffected > 0) {
-                logger.info("Successfully recorded repayment");
-                return true;
-            } else {
-                logger.warn("Failed to record repayment - no rows affected");
-                return false;
-            }
-        } catch (SQLException e) {
-            logger.error("Error recording repayment", e);
-            return false;
-        }
+        return transactions;
     }
 } 

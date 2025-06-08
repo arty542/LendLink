@@ -13,6 +13,9 @@ import com.lendlink.dao.WalletDao;
 import com.lendlink.model.User;
 import com.lendlink.model.DashboardData;
 import org.apache.log4j.Logger;
+import java.util.List;
+import com.lendlink.model.Transaction;
+import java.util.ArrayList;
 
 @WebServlet("/dashboard")
 public class DashboardServlet extends HttpServlet {
@@ -75,13 +78,32 @@ public class DashboardServlet extends HttpServlet {
                 double totalLent = loanDao.getTotalAmountLent(userId);
                 dashboardData.setLoansFunded(loansFunded);
                 dashboardData.setTotalLent(totalLent);
+                dashboardData.setTotalFunded(totalLent);
                 logger.info("Lender data fetched - Loans Funded: " + loansFunded + ", Total Lent: " + totalLent);
             }
             
             // Get wallet balance
-            double walletBalance = walletDao.getWalletBalance(userId);
+            double walletBalance = walletDao.getBalance(userId);
             dashboardData.setWalletBalance(walletBalance);
             logger.info("Wallet Balance fetched: " + walletBalance);
+            
+            try {
+                // Get available loans count
+                int availableLoans = loanDao.getAvailableLoansCount();
+                dashboardData.setAvailableLoans(availableLoans);
+            } catch (Exception e) {
+                logger.warn("Error getting available loans count: " + e.getMessage());
+                dashboardData.setAvailableLoans(0);
+            }
+
+            try {
+                // Get recent transactions
+                List<Transaction> recentTransactions = walletDao.getRecentTransactions(userId, 5);
+                request.setAttribute("recentTransactions", recentTransactions);
+            } catch (Exception e) {
+                logger.warn("Error getting recent transactions: " + e.getMessage());
+                request.setAttribute("recentTransactions", new ArrayList<>());
+            }
             
             // Get recent activity
             java.util.List<DashboardData.Activity> recentActivity = loanDao.getRecentActivity(userId);

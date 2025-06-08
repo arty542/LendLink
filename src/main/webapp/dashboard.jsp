@@ -166,7 +166,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <jsp:include page="/WEB-INF/jspf/sidebar.jsp"/>
+    <jsp:include page="./sidebar.jsp"/>
     <div class="main-content">
         <div class="dashboard-container">
             <h1 class="welcome-message">Your Dashboard</h1>
@@ -200,9 +200,15 @@
                     </div>
 
                     <div class="dashboard-card">
-                        <h3>Amount Lent</h3>
+                        <h3>Total Amount Lent</h3>
                         <p class="amount">$<fmt:formatNumber value="${dashboardData.totalLent}" pattern="#,##0.00"/></p>
                         <a href="my-fundings" class="card-link">View Details</a>
+                    </div>
+
+                    <div class="dashboard-card">
+                        <h3>Available Loans</h3>
+                        <p class="count"><c:out value="${dashboardData.availableLoans}"/></p>
+                        <a href="browse-loans" class="card-link">Browse Loans</a>
                     </div>
                 </c:if>
 

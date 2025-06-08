@@ -128,7 +128,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <jsp:include page="/WEB-INF/jspf/sidebar.jsp"/>
+    <jsp:include page="./sidebar.jsp"/>
     <div class="main-content">
         <div class="container">
             <div class="form-header">

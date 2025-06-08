@@ -52,16 +52,22 @@ CREATE TABLE Repayment (
 );
 
 CREATE TABLE Transaction (
-    transaction_id INT AUTO_INCREMENT PRIMARY KEY,
-    from_user_id INT NOT NULL,
-    to_user_id INT NOT NULL,
-    amount DECIMAL(10, 2) NOT NULL,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    transaction_id INT PRIMARY KEY AUTO_INCREMENT,
+    from_user_id INT,
+    to_user_id INT,
+    amount DECIMAL(10,2),
     type ENUM('funding', 'repayment', 'withdrawal', 'deposit') NOT NULL,
-    FOREIGN KEY (from_user_id) REFERENCES User(user_id)
-        ON DELETE CASCADE
-        ON UPDATE CASCADE,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (from_user_id) REFERENCES User(user_id),
     FOREIGN KEY (to_user_id) REFERENCES User(user_id)
-        ON DELETE CASCADE
-        ON UPDATE CASCADE
+);
+
+CREATE TABLE Wallet (
+    wallet_id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    balance DECIMAL(10,2) DEFAULT 0.00,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES User(user_id),
+    UNIQUE KEY unique_user_wallet (user_id)
 ); 

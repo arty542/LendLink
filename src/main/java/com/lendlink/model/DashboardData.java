@@ -8,9 +8,11 @@ public class DashboardData {
     private int loansTaken;
     private double totalBorrowed;
     private int loansFunded;
-    private double totalLent;
+    private double totalFunded;
     private double walletBalance;
+    private int availableLoans;
     private List<Activity> recentActivity;
+    private double totalLent;
 
     public DashboardData() {
         this.recentActivity = new ArrayList<>();
@@ -41,12 +43,12 @@ public class DashboardData {
         this.loansFunded = loansFunded;
     }
 
-    public double getTotalLent() {
-        return totalLent;
+    public double getTotalFunded() {
+        return totalFunded;
     }
 
-    public void setTotalLent(double totalLent) {
-        this.totalLent = totalLent;
+    public void setTotalFunded(double totalFunded) {
+        this.totalFunded = totalFunded;
     }
 
     public double getWalletBalance() {
@@ -57,12 +59,28 @@ public class DashboardData {
         this.walletBalance = walletBalance;
     }
 
+    public int getAvailableLoans() {
+        return availableLoans;
+    }
+
+    public void setAvailableLoans(int availableLoans) {
+        this.availableLoans = availableLoans;
+    }
+
     public List<Activity> getRecentActivity() {
         return recentActivity;
     }
 
     public void setRecentActivity(List<Activity> recentActivity) {
         this.recentActivity = recentActivity;
+    }
+
+    public double getTotalLent() {
+        return totalLent;
+    }
+
+    public void setTotalLent(double totalLent) {
+        this.totalLent = totalLent;
     }
 
     // Inner class for activity items
