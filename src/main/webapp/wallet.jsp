@@ -110,6 +110,7 @@
             margin-bottom: 1rem;
         }
     </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <jsp:include page="./sidebar.jsp"/>
@@ -143,6 +144,18 @@
                         <input type="number" id="amount" name="amount" min="1" step="0.01" required>
                     </div>
                     <button type="submit" class="button">Add Funds</button>
+                </form>
+            </div>
+
+            <div class="transaction-form">
+                <h2>Withdraw Funds</h2>
+                <form action="wallet" method="post">
+                    <input type="hidden" name="action" value="withdraw">
+                    <div class="form-group">
+                        <label for="withdrawAmount">Amount ($)</label>
+                        <input type="number" id="withdrawAmount" name="amount" min="1" step="0.01" max="${walletBalance}" required>
+                    </div>
+                    <button type="submit" class="button">Withdraw Funds</button>
                 </form>
             </div>
 

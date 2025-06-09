@@ -9,7 +9,9 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import com.lendlink.dao.LoanDao;
 import com.lendlink.dao.WalletDao;
+import com.lendlink.dao.UserDao;
 import com.lendlink.model.LoanRequest;
+import com.lendlink.model.User;
 import org.apache.log4j.Logger;
 
 @WebServlet("/fund-loan")
@@ -18,11 +20,13 @@ public class FundLoanServlet extends HttpServlet {
     private static final Logger logger = Logger.getLogger(FundLoanServlet.class);
     private LoanDao loanDao;
     private WalletDao walletDao;
+    private UserDao userDao;
 
     @Override
     public void init() throws ServletException {
         loanDao = new LoanDao();
         walletDao = new WalletDao();
+        userDao = new UserDao();
         logger.info("FundLoanServlet initialized");
     }
 
@@ -60,16 +64,37 @@ public class FundLoanServlet extends HttpServlet {
                 return;
             }
 
+            // Get funding amount from request
+            String fundingAmountStr = request.getParameter("fundingAmount");
+            if (fundingAmountStr == null || fundingAmountStr.isEmpty()) {
+                request.setAttribute("error", "Please specify the amount to fund");
+                request.getRequestDispatcher("browse-loans.jsp").forward(request, response);
+                return;
+            }
+
+            double fundingAmount = Double.parseDouble(fundingAmountStr);
+            // The loan.getAmount() now represents the remaining amount to be funded
+            double remainingAmount = loan.getAmount();
+
+            logger.debug("FundLoanServlet - Loan ID: " + loanId + ", loan.getAmount() (current remaining in DB): " + loan.getAmount() + ", calculated remainingAmount for validation: " + remainingAmount);
+
+            // Validate funding amount
+            if (fundingAmount <= 0 || fundingAmount > remainingAmount) {
+                request.setAttribute("error", "Invalid funding amount. Please enter an amount between $1 and $" + remainingAmount);
+                request.getRequestDispatcher("browse-loans.jsp").forward(request, response);
+                return;
+            }
+
             // Check if user has sufficient balance
             double userBalance = walletDao.getBalance(userId);
-            if (userBalance < loan.getAmount()) {
-                request.setAttribute("error", "Insufficient balance to fund this loan");
+            if (userBalance < fundingAmount) {
+                request.setAttribute("error", "Insufficient balance to fund this amount");
                 request.getRequestDispatcher("browse-loans.jsp").forward(request, response);
                 return;
             }
 
             // Process the funding transaction
-            boolean success = walletDao.withdraw(userId, loan.getAmount());
+            boolean success = walletDao.withdraw(userId, fundingAmount);
             if (!success) {
                 request.setAttribute("error", "Failed to process the funding transaction");
                 request.getRequestDispatcher("browse-loans.jsp").forward(request, response);
@@ -77,35 +102,43 @@ public class FundLoanServlet extends HttpServlet {
             }
 
             // Record the funding in the Funding table
-            success = loanDao.fundLoan(loanId, userId, loan.getAmount());
+            success = loanDao.fundLoan(loanId, userId, fundingAmount);
             if (!success) {
                 // If funding record fails, refund the user
-                walletDao.deposit(userId, loan.getAmount());
+                walletDao.deposit(userId, fundingAmount);
                 request.setAttribute("error", "Failed to record the funding. Your balance has been refunded.");
                 request.getRequestDispatcher("browse-loans.jsp").forward(request, response);
                 return;
             }
-
-            // Update loan status to funded
-            success = loanDao.updateLoanStatus(loanId, "funded");
-            if (!success) {
-                // If status update fails, refund the user
-                walletDao.deposit(userId, loan.getAmount());
-                request.setAttribute("error", "Failed to update loan status. Your balance has been refunded.");
-                request.getRequestDispatcher("browse-loans.jsp").forward(request, response);
-                return;
+            
+            // Re-fetch the loan to get its updated status and remaining amount after funding
+            loan = loanDao.getLoanRequestById(loanId);
+            if (loan != null) {
+                logger.debug("FundLoanServlet: Loan ID: " + loanId + " status AFTER loanDao.fundLoan: " + loan.getStatus());
+                logger.debug("FundLoanServlet: Loan ID: " + loanId + " amount AFTER loanDao.fundLoan: " + loan.getAmount());
+            } else {
+                logger.warn("FundLoanServlet: Loan object became null after funding for ID: " + loanId);
             }
 
             // Record the transaction
-            walletDao.recordTransaction(userId, loan.getUserId(), loan.getAmount(), "funding");
+            walletDao.recordTransaction(userId, loan.getUserId(), fundingAmount, "funding");
 
             // Add funds to borrower's wallet
-            success = walletDao.deposit(loan.getUserId(), loan.getAmount());
+            success = walletDao.deposit(loan.getUserId(), fundingAmount);
             if (!success) {
                 logger.error("Failed to add funds to borrower's wallet. Loan ID: " + loanId);
             }
 
-            response.sendRedirect("browse-loans");
+            // Get borrower's name
+            User borrower = userDao.getUserById(loan.getUserId());
+            String borrowerName = borrower != null ? borrower.getName() : "Unknown Borrower";
+
+            // Set success message and redirect to success page
+            request.setAttribute("loanAmount", fundingAmount);
+            request.setAttribute("loanPurpose", loan.getPurpose());
+            request.setAttribute("borrowerName", borrowerName);
+            request.setAttribute("remainingAmount", remainingAmount - fundingAmount);
+            request.getRequestDispatcher("funding-success.jsp").forward(request, response);
 
         } catch (NumberFormatException e) {
             request.setAttribute("error", "Invalid loan ID");

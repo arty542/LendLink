@@ -155,7 +155,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <jsp:include page="sidebar.jsp"/>
+    <jsp:include page="./sidebar.jsp"/>
     <div class="main-content">
         <div class="container">
             <h1>Browse Available Loans</h1>
@@ -228,6 +228,13 @@
                         </div>
                         <form action="fund-loan" method="post">
                             <input type="hidden" name="loanId" value="${loan.loanId}">
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label for="fundingAmount">Amount to Fund ($)</label>
+                                <input type="number" id="fundingAmount" name="fundingAmount" 
+                                       min="1" step="0.01" max="${loan.amount}" 
+                                       value="${loan.amount}" required
+                                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
                             <button type="submit" class="fund-button">Fund This Loan</button>
                         </form>
                     </div>

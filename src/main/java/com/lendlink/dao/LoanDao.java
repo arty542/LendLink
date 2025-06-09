@@ -2,7 +2,6 @@ package com.lendlink.dao;
 
 import com.lendlink.model.LoanRequest;
 import com.lendlink.model.DashboardData.Activity;
-import com.lendlink.model.Loan;
 import com.lendlink.util.DatabaseConnection;
 import org.apache.log4j.Logger;
 
@@ -174,218 +173,16 @@ public class LoanDao {
         return 0.0;
     }
 
-    public int getLoansFundedCount(int userId) {
-        logger.info("Getting loans funded count for user ID: " + userId);
-        String sql = "SELECT COUNT(DISTINCT loan_id) FROM Funding WHERE lender_id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
-            pstmt.setInt(1, userId);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    int count = rs.getInt(1);
-                    logger.info("Found " + count + " loans funded for user ID: " + userId);
-                    return count;
-                }
-            }
-        } catch (SQLException e) {
-            logger.error("Error getting loans funded count for user ID: " + userId, e);
-            e.printStackTrace();
-        }
-        logger.warn("No loans funded found or error occurred for user ID: " + userId);
-        return 0;
-    }
-
-    public double getTotalAmountLent(int userId) {
-        logger.info("Getting total amount lent for user ID: " + userId);
-        String sql = "SELECT COALESCE(SUM(amount_funded), 0) FROM Funding WHERE lender_id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
-            pstmt.setInt(1, userId);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    double amount = rs.getDouble(1);
-                    logger.info("Total amount lent for user ID " + userId + ": " + amount);
-                    return amount;
-                }
-            }
-        } catch (SQLException e) {
-            logger.error("Error getting total amount lent for user ID: " + userId, e);
-        }
-        logger.warn("No amount found or error occurred for user ID: " + userId);
-        return 0.0;
-    }
-
-    public List<Activity> getRecentActivity(int userId) {
-        logger.info("Getting recent activity for user ID: " + userId);
-        List<Activity> activities = new ArrayList<>();
-        String sql = "SELECT t.transaction_id, t.amount, t.created_on, t.type, " +
-                    "u1.name as from_user_name, u2.name as to_user_name " +
-                    "FROM Transaction t " +
-                    "JOIN User u1 ON t.from_user_id = u1.user_id " +
-                    "JOIN User u2 ON t.to_user_id = u2.user_id " +
-                    "WHERE t.from_user_id = ? OR t.to_user_id = ? " +
-                    "ORDER BY t.created_on DESC LIMIT 10";
-
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
-            pstmt.setInt(1, userId);
-            pstmt.setInt(2, userId);
-
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    activities.add(new Activity(
-                        rs.getInt("transaction_id"),
-                        rs.getDouble("amount"),
-                        rs.getTimestamp("created_on"),
-                        rs.getString("type"),
-                        rs.getString("from_user_name"),
-                        rs.getString("to_user_name")
-                    ));
-                }
-                logger.info("Found " + activities.size() + " recent activities for user ID: " + userId);
-            }
-        } catch (SQLException e) {
-            logger.error("Error getting recent activity for user ID: " + userId, e);
-        }
-        if (activities.isEmpty()) {
-            logger.warn("No recent activities found for user ID: " + userId);
-        }
-        return activities;
-    }
-
-    public List<Loan> getLoansByUserId(int userId) {
-        logger.info("Attempting to get loans for user ID: " + userId);
-        List<Loan> loans = new ArrayList<>();
-        String sql = "SELECT * FROM Loan WHERE borrower_id = ? OR lender_id = ?";
-
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setInt(1, userId);
-            pstmt.setInt(2, userId);
-
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    Loan loan = new Loan();
-                    loan.setLoanId(rs.getInt("loan_id"));
-                    loan.setBorrowerId(rs.getInt("borrower_id"));
-                    loan.setLenderId(rs.getInt("lender_id"));
-                    loan.setAmount(rs.getDouble("amount"));
-                    loan.setInterestRate(rs.getDouble("interest_rate"));
-                    loan.setTerm(rs.getInt("term"));
-                    loan.setStatus(rs.getString("status"));
-                    loan.setCreatedAt(rs.getTimestamp("created_at"));
-                    loan.setUpdatedAt(rs.getTimestamp("updated_at"));
-                    loans.add(loan);
-                }
-                logger.info("Found " + loans.size() + " loans for user ID: " + userId);
-            }
-        } catch (SQLException e) {
-            logger.error("Error getting loans for user ID: " + userId, e);
-        }
-        return loans;
-    }
-
-    public boolean createLoan(Loan loan) {
-        logger.info("Attempting to create loan - Borrower: " + loan.getBorrowerId() + 
-                   ", Lender: " + loan.getLenderId() + 
-                   ", Amount: " + loan.getAmount());
-        String sql = "INSERT INTO Loan (borrower_id, lender_id, amount, interest_rate, term, status) " +
-                    "VALUES (?, ?, ?, ?, ?, ?)";
-
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setInt(1, loan.getBorrowerId());
-            pstmt.setInt(2, loan.getLenderId());
-            pstmt.setDouble(3, loan.getAmount());
-            pstmt.setDouble(4, loan.getInterestRate());
-            pstmt.setInt(5, loan.getTerm());
-            pstmt.setString(6, loan.getStatus());
-
-            int rowsAffected = pstmt.executeUpdate();
-            if (rowsAffected > 0) {
-                logger.info("Successfully created loan");
-                return true;
-            } else {
-                logger.warn("Failed to create loan - no rows affected");
-                return false;
-            }
-        } catch (SQLException e) {
-            logger.error("Error creating loan", e);
-            return false;
-        }
-    }
-
-    public boolean updateLoanStatus(int loanId, String status) {
-        logger.info("Attempting to update loan status - Loan ID: " + loanId + ", New Status: " + status);
-        String sql = "UPDATE LoanRequest SET status = ? WHERE loan_id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            
-            stmt.setString(1, status);
-            stmt.setInt(2, loanId);
-            
-            int rowsAffected = stmt.executeUpdate();
-            if (rowsAffected > 0) {
-                logger.info("Successfully updated loan status to: " + status);
-                return true;
-            } else {
-                logger.warn("No loan found with ID: " + loanId);
-                return false;
-            }
-        } catch (SQLException e) {
-            logger.error("Error updating loan status", e);
-            throw new RuntimeException("Failed to update loan status", e);
-        }
-    }
-
-    public Loan getLoanById(int loanId) {
-        logger.info("Attempting to get loan by ID: " + loanId);
-        String sql = "SELECT * FROM Loan WHERE loan_id = ?";
-
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setInt(1, loanId);
-
-            try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    Loan loan = new Loan();
-                    loan.setLoanId(rs.getInt("loan_id"));
-                    loan.setBorrowerId(rs.getInt("borrower_id"));
-                    loan.setLenderId(rs.getInt("lender_id"));
-                    loan.setAmount(rs.getDouble("amount"));
-                    loan.setInterestRate(rs.getDouble("interest_rate"));
-                    loan.setTerm(rs.getInt("term"));
-                    loan.setStatus(rs.getString("status"));
-                    loan.setCreatedAt(rs.getTimestamp("created_at"));
-                    loan.setUpdatedAt(rs.getTimestamp("updated_at"));
-                    logger.info("Found loan with ID: " + loanId);
-                    return loan;
-                } else {
-                    logger.info("No loan found with ID: " + loanId);
-                    return null;
-                }
-            }
-        } catch (SQLException e) {
-            logger.error("Error getting loan by ID: " + loanId, e);
-            return null;
-        }
-    }
-
-    public List<LoanRequest> getAvailableLoanRequests(Double minAmount, Double maxAmount, 
+    public List<LoanRequest> getAvailableLoanRequests(int userId, Double minAmount, Double maxAmount, 
             Integer duration, String purpose, String sortBy) {
         logger.info("Getting available loan requests with filters");
         List<LoanRequest> loanRequests = new ArrayList<>();
         
         StringBuilder sql = new StringBuilder(
-            "SELECT * FROM LoanRequest WHERE status = 'open'");
+            "SELECT * FROM LoanRequest WHERE status = 'open' AND user_id != ?");
         
         List<Object> params = new ArrayList<>();
+        params.add(userId); // Add userId as first parameter
         
         if (minAmount != null) {
             sql.append(" AND amount >= ?");
@@ -458,79 +255,97 @@ public class LoanDao {
     }
 
     public boolean fundLoan(int loanId, int lenderId, double amount) {
-        logger.info("Attempting to fund loan - Loan ID: " + loanId + ", Lender ID: " + lenderId);
-        String sql = "INSERT INTO Funding (loan_id, lender_id, amount_funded) VALUES (?, ?, ?)";
+        logger.info("Attempting to fund loan - Loan ID: " + loanId + ", Lender ID: " + lenderId + ", Amount: " + amount);
+        
+        // Start transaction
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            
+            try {
+                // Get current loan details
+                LoanRequest loan = getLoanRequestById(loanId);
+                if (loan == null) {
+                    logger.error("Loan not found: " + loanId);
+                    return false;
+                }
+                logger.debug("Original loan amount: " + loan.getAmount());
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                // Get total amount funded so far
+                double totalFunded = getTotalAmountFundedForLoan(loanId);
+                logger.debug("Total amount funded so far: " + totalFunded);
+                double remainingAmount = loan.getAmount();
+                logger.debug("Calculated remaining amount: " + remainingAmount);
 
+                // Validate funding amount
+                if (amount <= 0 || amount > remainingAmount) {
+                    logger.error("Invalid funding amount: " + amount + " for loan: " + loanId + ". Remaining amount: " + remainingAmount);
+                    return false;
+                }
+                // Log the status before update
+                logger.debug("Loan ID: " + loanId + " status BEFORE update: " + loan.getStatus());
+
+                // Record the funding
+                String fundingSql = "INSERT INTO Funding (loan_id, lender_id, amount_funded) VALUES (?, ?, ?)";
+                try (PreparedStatement pstmt = conn.prepareStatement(fundingSql)) {
             pstmt.setInt(1, loanId);
             pstmt.setInt(2, lenderId);
             pstmt.setDouble(3, amount);
+                    pstmt.executeUpdate();
+                }
 
-            int rowsAffected = pstmt.executeUpdate();
-            if (rowsAffected > 0) {
-                logger.info("Successfully funded loan");
+                // Update loan amount and status in LoanRequest table
+                String updateLoanRequestSql = "UPDATE LoanRequest SET status = CASE WHEN (amount - ?) <= 0 THEN 'funded' ELSE status END, amount = amount - ? WHERE loan_id = ?";
+                try (PreparedStatement pstmt = conn.prepareStatement(updateLoanRequestSql)) {
+                    pstmt.setDouble(1, amount);
+                    pstmt.setDouble(2, amount);
+                    pstmt.setInt(3, loanId);
+                    pstmt.executeUpdate();
+                    // Log the status after update
+                    LoanRequest updatedLoan = getLoanRequestById(loanId);
+                    if (updatedLoan != null) {
+                        logger.debug("Loan ID: " + loanId + " status after update: " + updatedLoan.getStatus());
+                    }
+                }
+
+                conn.commit();
+                logger.info("Successfully funded loan - Loan ID: " + loanId + ", Amount: " + amount);
                 return true;
-            } else {
-                logger.warn("Failed to fund loan - no rows affected");
+
+            } catch (SQLException e) {
+                conn.rollback();
+                logger.error("Error funding loan", e);
                 return false;
             }
         } catch (SQLException e) {
-            logger.error("Error funding loan", e);
+            logger.error("Error in transaction", e);
             return false;
         }
     }
 
-    public List<LoanRequest> getAvailableLoans(Double minAmount, Double maxAmount, Integer duration, String purpose, String sortBy) {
-        List<LoanRequest> loans = new ArrayList<>();
-        String sql = "SELECT * FROM LoanRequest WHERE status = 'open'";
-        List<Object> params = new ArrayList<>();
-        
-        if (minAmount != null) {
-            sql += " AND amount >= ?";
-            params.add(minAmount);
-        }
-        if (maxAmount != null) {
-            sql += " AND amount <= ?";
-            params.add(maxAmount);
-        }
-        if (duration != null) {
-            sql += " AND duration_months = ?";
-            params.add(duration);
-        }
-        if (purpose != null && !purpose.isEmpty()) {
-            sql += " AND purpose LIKE ?";
-            params.add("%" + purpose + "%");
-        }
-        
-        if (sortBy != null && !sortBy.isEmpty()) {
-            sql += " ORDER BY " + sortBy;
-        } else {
-            sql += " ORDER BY created_on DESC";
-        }
-        
+    public double getTotalAmountFundedForLoan(int loanId) {
+        String sql = "SELECT COALESCE(SUM(amount_funded), 0) FROM Funding WHERE loan_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            for (int i = 0; i < params.size(); i++) {
-                stmt.setObject(i + 1, params.get(i));
-            }
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                LoanRequest loan = new LoanRequest();
-                loan.setLoanId(rs.getInt("loan_id"));
-                loan.setUserId(rs.getInt("user_id"));
-                loan.setAmount(rs.getDouble("amount"));
-                loan.setDurationMonths(rs.getInt("duration_months"));
-                loan.setPurpose(rs.getString("purpose"));
-                loan.setStatus(rs.getString("status"));
-                loan.setCreatedOn(rs.getTimestamp("created_on"));
-                loans.add(loan);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setInt(1, loanId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble(1);
+                }
             }
         } catch (SQLException e) {
-            logger.error("Error getting available loans", e);
+            logger.error("Error getting total amount funded for loan: " + loanId, e);
         }
-        return loans;
+        return 0.0;
+    }
+
+    public boolean isLoanFullyFunded(int loanId) {
+        LoanRequest loan = getLoanRequestById(loanId);
+        if (loan == null) {
+            return false;
+        }
+        double totalFunded = getTotalAmountFundedForLoan(loanId);
+        return totalFunded >= loan.getAmount();
     }
 
     public int getAvailableLoansCount() {
@@ -549,8 +364,87 @@ public class LoanDao {
     }
 
     public double getTotalAmountFunded(int userId) {
-        // This method is redundant with getTotalAmountLent
-        // Using getTotalAmountLent instead
         return getTotalAmountLent(userId);
+    }
+
+    public double getTotalAmountLent(int userId) {
+        logger.info("Getting total amount lent for user ID: " + userId);
+        String sql = "SELECT COALESCE(SUM(amount_funded), 0) FROM Funding WHERE lender_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setInt(1, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    double amount = rs.getDouble(1);
+                    logger.info("Total amount lent for user ID " + userId + ": " + amount);
+                    return amount;
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error getting total amount lent for user ID: " + userId, e);
+        }
+        logger.warn("No amount found or error occurred for user ID: " + userId);
+        return 0.0;
+    }
+
+    public int getLoansFundedCount(int userId) {
+        logger.info("Getting loans funded count for user ID: " + userId);
+        String sql = "SELECT COUNT(DISTINCT loan_id) FROM Funding WHERE lender_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setInt(1, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    int count = rs.getInt(1);
+                    logger.info("Found " + count + " loans funded for user ID: " + userId);
+                    return count;
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error getting loans funded count for user ID: " + userId, e);
+        }
+        logger.warn("No loans funded found or error occurred for user ID: " + userId);
+        return 0;
+    }
+
+    public List<Activity> getRecentActivity(int userId) {
+        logger.info("Getting recent activity for user ID: " + userId);
+        List<Activity> activities = new ArrayList<>();
+        String sql = "SELECT t.transaction_id, t.amount, t.created_on, t.type, " +
+                    "u1.name as from_user_name, u2.name as to_user_name " +
+                    "FROM Transaction t " +
+                    "JOIN User u1 ON t.from_user_id = u1.user_id " +
+                    "JOIN User u2 ON t.to_user_id = u2.user_id " +
+                    "WHERE t.from_user_id = ? OR t.to_user_id = ? " +
+                    "ORDER BY t.created_on DESC LIMIT 10";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setInt(1, userId);
+            pstmt.setInt(2, userId);
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    activities.add(new Activity(
+                        rs.getInt("transaction_id"),
+                        rs.getDouble("amount"),
+                        rs.getTimestamp("created_on"),
+                        rs.getString("type"),
+                        rs.getString("from_user_name"),
+                        rs.getString("to_user_name")
+                    ));
+                }
+                logger.info("Found " + activities.size() + " recent activities for user ID: " + userId);
+            }
+        } catch (SQLException e) {
+            logger.error("Error getting recent activity for user ID: " + userId, e);
+        }
+        if (activities.isEmpty()) {
+            logger.warn("No recent activities found for user ID: " + userId);
+        }
+        return activities;
     }
 } 

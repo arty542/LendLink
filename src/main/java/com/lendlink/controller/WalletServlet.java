@@ -85,6 +85,35 @@ public class WalletServlet extends HttpServlet {
                 logger.error("Error processing deposit", e);
                 request.setAttribute("error", "An error occurred while processing your deposit. Please try again later.");
             }
+        } else if ("withdraw".equals(action)) {
+            try {
+                double amount = Double.parseDouble(request.getParameter("amount"));
+                if (amount <= 0) {
+                    request.setAttribute("error", "Please enter a valid amount.");
+                    doGet(request, response);
+                    return;
+                }
+
+                // Check if user has sufficient balance
+                double currentBalance = walletDao.getBalance(userId);
+                if (amount > currentBalance) {
+                    request.setAttribute("error", "Insufficient balance for withdrawal.");
+                    doGet(request, response);
+                    return;
+                }
+
+                boolean success = walletDao.withdraw(userId, amount);
+                if (success) {
+                    request.setAttribute("success", "Successfully withdrew funds from your wallet.");
+                } else {
+                    request.setAttribute("error", "Failed to withdraw funds. Please try again.");
+                }
+            } catch (NumberFormatException e) {
+                request.setAttribute("error", "Please enter a valid amount.");
+            } catch (Exception e) {
+                logger.error("Error processing withdrawal", e);
+                request.setAttribute("error", "An error occurred while processing your withdrawal. Please try again later.");
+            }
         }
 
         doGet(request, response);

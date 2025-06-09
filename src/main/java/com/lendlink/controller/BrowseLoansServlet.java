@@ -62,7 +62,8 @@ public class BrowseLoansServlet extends HttpServlet {
         }
 
         // Get filtered loans
-        List<LoanRequest> loans = loanDao.getAvailableLoanRequests(minAmount, maxAmount, duration, purpose, sortBy);
+        int userId = (int) session.getAttribute("userId");
+        List<LoanRequest> loans = loanDao.getAvailableLoanRequests(userId, minAmount, maxAmount, duration, purpose, sortBy);
         request.setAttribute("loanRequests", loans);
 
         // Forward to JSP

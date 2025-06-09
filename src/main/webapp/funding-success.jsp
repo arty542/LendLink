@@ -1,5 +1,6 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt"%>
 <!DOCTYPE html>
 <html>
 <head>
@@ -85,7 +86,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <jsp:include page="/WEB-INF/jspf/sidebar.jsp"/>
+    <jsp:include page="./sidebar.jsp"/>
     <div class="main-content">
         <div class="container">
             <div class="success-card">
@@ -94,6 +95,15 @@
                 <p class="success-message">
                     Thank you for funding this loan request. Your contribution will help make a difference in someone's life.
                 </p>
+                <div class="funding-details" style="margin: 2rem 0; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
+                    <h3 style="color: #2c3e50; margin-bottom: 1rem;">Funding Details</h3>
+                    <p><strong>Amount Funded:</strong> $<fmt:formatNumber value="${loanAmount}" pattern="#,##0.00"/></p>
+                    <p><strong>Loan Purpose:</strong> ${loanPurpose}</p>
+                    <p><strong>Borrower:</strong> ${borrowerName}</p>
+                    <c:if test="${remainingAmount > 0}">
+                        <p><strong>Remaining Amount:</strong> $<fmt:formatNumber value="${remainingAmount}" pattern="#,##0.00"/></p>
+                    </c:if>
+                </div>
                 <div>
                     <a href="dashboard" class="button">Go to Dashboard</a>
                     <a href="browse-loans" class="button secondary">Browse More Loans</a>
