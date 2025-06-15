@@ -163,12 +163,11 @@
             <li><a href="dashboard"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
             <c:if test="${sessionScope.userRole == 'borrower' || sessionScope.userRole == 'both'}">
                 <li><a href="create-loan-request"><i class="fas fa-plus-circle"></i> <span>Create Loan Request</span></a></li>
-                <li><a href="my-loans"><i class="fas fa-money-check-alt"></i> <span>My Loans</span></a></li>
             </c:if>
             <c:if test="${sessionScope.userRole == 'lender' || sessionScope.userRole == 'both'}">
                 <li><a href="browse-loans"><i class="fas fa-search-dollar"></i> <span>Browse Loans</span></a></li>
-                <li><a href="my-fundings"><i class="fas fa-hand-holding-usd"></i> <span>My Fundings</span></a></li>
             </c:if>
+            <li><a href="my-loans"><i class="fas fa-money-check-alt"></i> <span>My Loans</span></a></li>
             <li><a href="wallet"><i class="fas fa-wallet"></i> <span>Wallet</span></a></li>
             <li><a href="profile"><i class="fas fa-user"></i> <span>Profile</span></a></li>
             <li><a href="logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>

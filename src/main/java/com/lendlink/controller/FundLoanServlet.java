@@ -13,6 +13,9 @@ import com.lendlink.dao.UserDao;
 import com.lendlink.model.LoanRequest;
 import com.lendlink.model.User;
 import org.apache.log4j.Logger;
+import java.util.Calendar;
+import java.sql.Date;
+import com.lendlink.model.Repayment;
 
 @WebServlet("/fund-loan")
 public class FundLoanServlet extends HttpServlet {
@@ -116,17 +119,50 @@ public class FundLoanServlet extends HttpServlet {
             if (loan != null) {
                 logger.debug("FundLoanServlet: Loan ID: " + loanId + " status AFTER loanDao.fundLoan: " + loan.getStatus());
                 logger.debug("FundLoanServlet: Loan ID: " + loanId + " amount AFTER loanDao.fundLoan: " + loan.getAmount());
+
+                // If loan is fully funded, create repayment schedule
+                if ("funded".equals(loan.getStatus())) {
+                    logger.info("Creating repayment schedule for loan ID: " + loanId);
+                    // Create repayment schedule
+                    Calendar calendar = Calendar.getInstance();
+                    calendar.setTime(loan.getCreatedOn());
+                    calendar.add(Calendar.MONTH, 1); // First payment due after 1 month
+
+                    double totalFunded = loanDao.getTotalAmountFundedForLoan(loanId);
+                    logger.info("Total funded amount: " + totalFunded + ", Duration months: " + loan.getDurationMonths());
+                    double monthlyPayment = totalFunded / loan.getDurationMonths();
+                    logger.info("Monthly payment amount: " + monthlyPayment);
+
+                    for (int i = 0; i < loan.getDurationMonths(); i++) {
+                        Repayment repayment = new Repayment();
+                        repayment.setLoanId(loanId);
+                        repayment.setDueDate(new Date(calendar.getTimeInMillis()));
+                        repayment.setAmountDue(monthlyPayment);
+                        repayment.setStatus("pending");
+
+                        logger.info("Creating repayment entry " + (i + 1) + " of " + loan.getDurationMonths() + 
+                                  " - Due date: " + repayment.getDueDate() + 
+                                  ", Amount: " + repayment.getAmountDue());
+
+                        boolean scheduleSuccess = loanDao.createRepayment(repayment);
+                        if (!scheduleSuccess) {
+                            logger.error("Failed to create repayment schedule for loan: " + loanId + 
+                                       " - Entry " + (i + 1) + " of " + loan.getDurationMonths());
+                        } else {
+                            logger.info("Successfully created repayment entry " + (i + 1));
+                        }
+
+                        calendar.add(Calendar.MONTH, 1);
+                    }
+                }
             } else {
                 logger.warn("FundLoanServlet: Loan object became null after funding for ID: " + loanId);
             }
 
-            // Record the transaction
-            walletDao.recordTransaction(userId, loan.getUserId(), fundingAmount, "funding");
-
-            // Add funds to borrower's wallet
-            success = walletDao.deposit(loan.getUserId(), fundingAmount);
+            // Record the transaction and add funds to borrower's wallet in a single operation
+            success = walletDao.processFundingTransaction(userId, loan.getUserId(), fundingAmount);
             if (!success) {
-                logger.error("Failed to add funds to borrower's wallet. Loan ID: " + loanId);
+                logger.error("Failed to process funding transaction for loan ID: " + loanId);
             }
 
             // Get borrower's name

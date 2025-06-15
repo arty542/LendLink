@@ -75,7 +75,7 @@ public class UserDao {
         logger.info("Attempting to create new user: " + user.getEmail());
         String sql = "INSERT INTO User (name, email, password_hash, role) VALUES (?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS)) {
 
             pstmt.setString(1, user.getName());
             pstmt.setString(2, user.getEmail());
@@ -84,6 +84,22 @@ public class UserDao {
 
             int rowsAffected = pstmt.executeUpdate();
             if (rowsAffected > 0) {
+                // Get the generated user ID
+                try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        int userId = generatedKeys.getInt(1);
+                        // Create wallet for the new user
+                        WalletDao walletDao = new WalletDao();
+                        boolean walletCreated = walletDao.createWallet(userId);
+                        if (walletCreated) {
+                            logger.info("Successfully created user and wallet: " + user.getEmail());
+                            return true;
+                        } else {
+                            logger.error("Failed to create wallet for user: " + user.getEmail());
+                            return false;
+                        }
+                    }
+                }
                 logger.info("Successfully created user: " + user.getEmail());
                 return true;
             } else {
@@ -95,6 +111,4 @@ public class UserDao {
             return false;
         }
     }
-
-    // You would add methods here for creating users, updating users, etc.
 } 

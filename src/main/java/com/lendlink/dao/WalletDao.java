@@ -166,4 +166,41 @@ public class WalletDao {
         }
         return transactions;
     }
+
+    public boolean processFundingTransaction(int fromUserId, int toUserId, double amount) {
+        logger.info("Processing funding transaction - From: " + fromUserId + ", To: " + toUserId + ", Amount: " + amount);
+        
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                // Update borrower's balance
+                String updateSql = "UPDATE Wallet SET balance = balance + ? WHERE user_id = ?";
+                try (PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
+                    pstmt.setDouble(1, amount);
+                    pstmt.setInt(2, toUserId);
+                    pstmt.executeUpdate();
+                }
+
+                // Record the transaction
+                String transactionSql = "INSERT INTO Transaction (from_user_id, to_user_id, amount, type) VALUES (?, ?, ?, 'funding')";
+                try (PreparedStatement pstmt = conn.prepareStatement(transactionSql)) {
+                    pstmt.setInt(1, fromUserId);
+                    pstmt.setInt(2, toUserId);
+                    pstmt.setDouble(3, amount);
+                    pstmt.executeUpdate();
+                }
+
+                conn.commit();
+                logger.info("Funding transaction processed successfully");
+                return true;
+            } catch (SQLException e) {
+                conn.rollback();
+                logger.error("Error processing funding transaction", e);
+                return false;
+            }
+        } catch (SQLException e) {
+            logger.error("Error in funding transaction", e);
+            return false;
+        }
+    }
 } 

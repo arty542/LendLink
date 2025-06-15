@@ -14,112 +14,132 @@ import com.lendlink.model.User;
 import com.lendlink.model.DashboardData;
 import org.apache.log4j.Logger;
 import java.util.List;
-import com.lendlink.model.Transaction;
-import java.util.ArrayList;
+import com.google.gson.Gson;
+import java.util.Map;
 
-@WebServlet("/dashboard")
+
+@WebServlet({"/dashboard", "/api/dashboard"})
 public class DashboardServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final Logger logger = Logger.getLogger(DashboardServlet.class);
     private UserDao userDao;
     private LoanDao loanDao;
     private WalletDao walletDao;
+    private Gson gson;
 
     @Override
     public void init() throws ServletException {
         userDao = new UserDao();
         loanDao = new LoanDao();
         walletDao = new WalletDao();
+        gson = new Gson();
         logger.info("DashboardServlet initialized");
     }
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
         logger.info("--- Entering DashboardServlet doGet method ---");
-        HttpSession session = request.getSession(false);
-        
-        logger.info("Accessing DashboardServlet");
 
-        // Check if user is logged in
+        HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("userId") == null) {
-            logger.warn("User not logged in, redirecting to login.jsp");
+            logger.warn("Session is null or user not logged in");
+            if (request.getRequestURI().contains("/api/")) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.getWriter().write(gson.toJson(Map.of("error", "User not logged in")));
+                return;
+            }
             response.sendRedirect("login.jsp");
             return;
         }
 
         int userId = (int) session.getAttribute("userId");
         String userRole = (String) session.getAttribute("userRole");
-
-        logger.info("User logged in. User ID: " + userId + ", Role: " + userRole);
+        logger.info("Session valid - userId: " + userId + ", userRole: " + userRole);
 
         try {
-            // Get user data
             User user = userDao.getUserById(userId);
             if (user == null) {
-                logger.warn("User object is null for userId: " + userId);
+                logger.warn("User not found for userId: " + userId);
+                if (request.getRequestURI().contains("/api/")) {
+                    response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                    response.getWriter().write(gson.toJson(Map.of("error", "User not found")));
+                    return;
+                }
                 response.sendRedirect("login.jsp");
                 return;
             }
-            logger.info("User object retrieved successfully");
 
-            // Get dashboard data based on user role
-            DashboardData dashboardData = new DashboardData();
-            
-            if ("borrower".equals(userRole) || "both".equals(userRole)) {
-                int loansTaken = loanDao.getLoansTakenCount(userId);
-                double totalBorrowed = loanDao.getTotalAmountBorrowed(userId);
-                dashboardData.setLoansTaken(loansTaken);
-                dashboardData.setTotalBorrowed(totalBorrowed);
-                logger.info("Borrower data fetched - Loans Taken: " + loansTaken + ", Total Borrowed: " + totalBorrowed);
+            logger.info("User found: " + user.getName());
+            DashboardData dashboardData = getDashboardData(userId, userRole);
+            logger.info("Dashboard data successfully assembled for userId: " + userId);
+
+            if (request.getRequestURI().contains("/api/")) {
+                response.setContentType("application/json");
+                response.setCharacterEncoding("UTF-8");
+                String jsonResponse = gson.toJson(dashboardData);
+                logger.info("Sending dashboard JSON response: " + jsonResponse);
+                response.getWriter().write(jsonResponse);
+                response.getWriter().flush();
+            } else {
+                logger.info("Forwarding to dashboard.jsp");
+                request.setAttribute("dashboardData", dashboardData);
+                request.setAttribute("user", user);
+                request.getRequestDispatcher("dashboard.jsp").forward(request, response);
             }
-            
-            if ("lender".equals(userRole) || "both".equals(userRole)) {
-                int loansFunded = loanDao.getLoansFundedCount(userId);
-                double totalLent = loanDao.getTotalAmountLent(userId);
-                dashboardData.setLoansFunded(loansFunded);
-                dashboardData.setTotalLent(totalLent);
-                dashboardData.setTotalFunded(totalLent);
-                logger.info("Lender data fetched - Loans Funded: " + loansFunded + ", Total Lent: " + totalLent);
+
+        } catch (Exception e) {
+            logger.error("Error loading dashboard data", e);
+            if (request.getRequestURI().contains("/api/")) {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                response.getWriter().write(gson.toJson(Map.of("error", "An error occurred while loading dashboard data")));
+            } else {
+                request.setAttribute("error", "An error occurred while loading your dashboard. Please try again later.");
+                request.getRequestDispatcher("error.jsp").forward(request, response);
             }
-            
-            // Get wallet balance
-            double walletBalance = walletDao.getBalance(userId);
-            dashboardData.setWalletBalance(walletBalance);
-            logger.info("Wallet Balance fetched: " + walletBalance);
-            
+        }
+    }
+
+    private DashboardData getDashboardData(int userId, String userRole) throws Exception {
+        logger.info("Fetching dashboard data for userId: " + userId + ", role: " + userRole);
+        DashboardData dashboardData = new DashboardData();
+        dashboardData.setUserRole(userRole);
+
+        if ("borrower".equals(userRole) || "both".equals(userRole)) {
+            int loansTaken = loanDao.getLoansTakenCount(userId);
+            double totalBorrowed = loanDao.getTotalAmountFundedForUser(userId);
+            logger.info("Borrower stats - LoansTaken: " + loansTaken + ", TotalBorrowed: " + totalBorrowed);
+
+            dashboardData.setLoansTaken(loansTaken);
+            dashboardData.setTotalBorrowed(totalBorrowed);
+        }
+
+        if ("lender".equals(userRole) || "both".equals(userRole)) {
+            int loansFunded = loanDao.getLoansFundedCount(userId);
+            double totalLent = loanDao.getTotalAmountLent(userId);
+            logger.info("Lender stats - LoansFunded: " + loansFunded + ", TotalLent: " + totalLent);
+
+            dashboardData.setLoansFunded(loansFunded);
+            dashboardData.setTotalLent(totalLent);
+            dashboardData.setTotalFunded(totalLent);  // Redundant but kept for consistency
+
             try {
-                // Get available loans count
-                int availableLoans = loanDao.getAvailableLoansCount();
+                int availableLoans = loanDao.getAvailableLoansCount(userId);
+                logger.info("Available loans: " + availableLoans);
                 dashboardData.setAvailableLoans(availableLoans);
             } catch (Exception e) {
                 logger.warn("Error getting available loans count: " + e.getMessage());
                 dashboardData.setAvailableLoans(0);
             }
-
-            try {
-                // Get recent transactions
-                List<Transaction> recentTransactions = walletDao.getRecentTransactions(userId, 5);
-                request.setAttribute("recentTransactions", recentTransactions);
-            } catch (Exception e) {
-                logger.warn("Error getting recent transactions: " + e.getMessage());
-                request.setAttribute("recentTransactions", new ArrayList<>());
-            }
-            
-            // Get recent activity
-            java.util.List<DashboardData.Activity> recentActivity = loanDao.getRecentActivity(userId);
-            dashboardData.setRecentActivity(recentActivity);
-            logger.info("Recent Activity fetched. Count: " + (recentActivity != null ? recentActivity.size() : 0));
-
-            // Set attributes for JSP
-            request.setAttribute("dashboardData", dashboardData);
-            request.setAttribute("user", user);
-            logger.info("Dashboard data set as request attribute, forwarding to dashboard.jsp");
-            request.getRequestDispatcher("dashboard.jsp").forward(request, response);
-            
-        } catch (Exception e) {
-            logger.error("Error loading dashboard data", e);
-            request.setAttribute("error", "An error occurred while loading your dashboard. Please try again later.");
-            request.getRequestDispatcher("error.jsp").forward(request, response);
         }
+
+        double walletBalance = walletDao.getBalance(userId);
+        logger.info("Wallet balance: " + walletBalance);
+        dashboardData.setWalletBalance(walletBalance);
+
+        List<DashboardData.Activity> recentActivity = loanDao.getRecentActivity(userId);
+        logger.info("Recent activity count: " + (recentActivity != null ? recentActivity.size() : 0));
+        dashboardData.setRecentActivity(recentActivity);
+
+        return dashboardData;
     }
-} 
+}

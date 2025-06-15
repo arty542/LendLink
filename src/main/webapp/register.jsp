@@ -40,7 +40,7 @@
         .nav-links {
             display: flex;
             gap: 2rem;
-             align-items: center;
+            align-items: center;
         }
 
         .nav-links a {
@@ -103,7 +103,7 @@
             transition: border-color 0.3s ease;
         }
 
-         .form-group input:focus, .form-group select:focus {
+        .form-group input:focus, .form-group select:focus {
             outline: none;
             border-color: #3498db;
         }
@@ -145,6 +145,29 @@
             color: #e74c3c;
             margin-bottom: 1rem;
             text-align: center;
+            display: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -164,13 +187,9 @@
                 <p>Join LendLink today</p>
             </div>
 
-            <% if(request.getAttribute("error") != null) { %>
-                <div class="error">
-                    <%= request.getAttribute("error") %>
-                </div>
-            <% } %>
+            <div id="error-message" class="error"></div>
 
-            <form action="register" method="post">
+            <form id="register-form" onsubmit="return handleRegister(event)">
                 <div class="form-group">
                     <label for="name">Full Name</label>
                     <input type="text" id="name" name="name" required>
@@ -186,7 +205,7 @@
                     <input type="password" id="password" name="password" required>
                 </div>
 
-                 <div class="form-group">
+                <div class="form-group">
                     <label for="role">Role</label>
                     <select id="role" name="role" required>
                         <option value="borrower">Borrower</option>
@@ -195,7 +214,8 @@
                     </select>
                 </div>
                 
-                <button type="submit" class="button">Register</button>
+                <button type="submit" class="button" id="register-button">Register</button>
+                <div id="loading" class="loading"></div>
             </form>
             
             <div class="login-link">
@@ -203,5 +223,86 @@
             </div>
         </div>
     </div>
+
+    <script>
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('register-button').disabled = true;
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('register-button').disabled = false;
+        }
+
+        function handleRegister(event) {
+            event.preventDefault();
+            
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const role = document.getElementById('role').value;
+            
+            // Show loading state
+            const submitBtn = document.getElementById('register-button');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registering...';
+            submitBtn.disabled = true;
+            
+            // Clear previous errors
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.innerHTML = '';
+            errorDiv.style.display = 'none';
+            
+            fetch('${pageContext.request.contextPath}/api/auth/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: name,
+                    email: email,
+                    password: password,
+                    role: role
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.error || 'Registration failed');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Show success message
+                errorDiv.innerHTML = 'Registration successful! Redirecting to login...';
+                errorDiv.style.display = 'block';
+                errorDiv.style.color = 'green';
+                
+                // Redirect to login page after a short delay
+                setTimeout(() => {
+                    window.location.href = '${pageContext.request.contextPath}/login.jsp';
+                }, 2000);
+            })
+            .catch(error => {
+                console.error('Registration error:', error);
+                errorDiv.innerHTML = error.message || 'An error occurred during registration';
+                errorDiv.style.display = 'block';
+                errorDiv.style.color = 'red';
+            })
+            .finally(() => {
+                // Reset button state
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            });
+        }
+    </script>
 </body>
 </html> 

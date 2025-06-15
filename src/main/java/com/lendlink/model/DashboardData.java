@@ -13,6 +13,7 @@ public class DashboardData {
     private int availableLoans;
     private List<Activity> recentActivity;
     private double totalLent;
+    private String userRole;
 
     public DashboardData() {
         this.recentActivity = new ArrayList<>();
@@ -81,6 +82,14 @@ public class DashboardData {
 
     public void setTotalLent(double totalLent) {
         this.totalLent = totalLent;
+    }
+
+    public String getUserRole() {
+        return userRole;
+    }
+
+    public void setUserRole(String userRole) {
+        this.userRole = userRole;
     }
 
     // Inner class for activity items

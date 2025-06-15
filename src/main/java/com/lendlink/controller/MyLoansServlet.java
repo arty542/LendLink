@@ -1,17 +1,16 @@
 package com.lendlink.controller;
 
-import com.lendlink.dao.LoanDao;
-import com.lendlink.model.LoanRequest;
-import org.apache.log4j.Logger;
-
+import java.io.IOException;
+import java.util.List;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-import java.io.IOException;
-import java.util.List;
+import com.lendlink.dao.LoanDao;
+import com.lendlink.model.LoanRequest;
+import org.apache.log4j.Logger;
 
 @WebServlet("/my-loans")
 public class MyLoansServlet extends HttpServlet {
@@ -22,7 +21,6 @@ public class MyLoansServlet extends HttpServlet {
     @Override
     public void init() throws ServletException {
         loanDao = new LoanDao();
-        logger.info("MyLoansServlet initialized");
     }
 
     @Override
@@ -30,7 +28,7 @@ public class MyLoansServlet extends HttpServlet {
             throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("userId") == null) {
-            response.sendRedirect("login.jsp");
+            response.sendRedirect("login");
             return;
         }
 
@@ -38,30 +36,32 @@ public class MyLoansServlet extends HttpServlet {
         String userRole = (String) session.getAttribute("userRole");
 
         try {
-            List<LoanRequest> myRequestedLoans = null;
-            List<LoanRequest> myFundedLoans = null;
-
+            // Get loans requested by the user (for borrowers)
             if ("borrower".equals(userRole) || "both".equals(userRole)) {
-                myRequestedLoans = loanDao.getLoanRequestsByUserId(userId);
-                logger.info("Fetched requested loans for user ID " + userId + ": " + myRequestedLoans.size());
+                List<LoanRequest> myRequestedLoans = loanDao.getLoansByUserId(userId);
+                request.setAttribute("myRequestedLoans", myRequestedLoans);
             }
 
+            // Get loans funded by the user (for lenders)
             if ("lender".equals(userRole) || "both".equals(userRole)) {
-                // This method will be added in LoanDao in a subsequent step
-                // For now, we'll initialize as null or empty list
-                // myFundedLoans = loanDao.getFundedLoanRequestsByLenderId(userId);
-                // logger.info("Fetched funded loans for user ID " + userId + ": " + myFundedLoans.size());
+                List<LoanRequest> myFundedLoans = loanDao.getLoansFundedByUser(userId);
+                for (LoanRequest loan : myFundedLoans) {
+                    double fundedAmount = loanDao.getTotalAmountFundedForLoan(loan.getLoanId());
+                    loan.setFundedAmount(fundedAmount);
+                }
+                request.setAttribute("myFundedLoans", myFundedLoans);
             }
-            
-            request.setAttribute("myRequestedLoans", myRequestedLoans);
-            request.setAttribute("myFundedLoans", myFundedLoans);
-            request.setAttribute("userRole", userRole); // Pass user role to JSP
+
+            // Set user role for the view
+            request.setAttribute("userRole", userRole);
+
+            // Forward to the JSP
             request.getRequestDispatcher("my-loans.jsp").forward(request, response);
 
         } catch (Exception e) {
-            logger.error("Error loading my loans data for user ID: " + userId, e);
-            request.setAttribute("error", "An error occurred while loading your loans. Please try again later.");
-            request.getRequestDispatcher("error.jsp").forward(request, response);
+            logger.error("Error loading loans for user: " + userId, e);
+            request.setAttribute("error", "An error occurred while loading your loans");
+            request.getRequestDispatcher("my-loans.jsp").forward(request, response);
         }
     }
 } 

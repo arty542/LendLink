@@ -11,6 +11,7 @@ public class LoanRequest {
     private String description;
     private String status;
     private Timestamp createdOn;
+    private double fundedAmount;
 
     public LoanRequest() {
     }
@@ -86,5 +87,13 @@ public class LoanRequest {
 
     public void setCreatedOn(Timestamp createdOn) {
         this.createdOn = createdOn;
+    }
+
+    public double getFundedAmount() {
+        return fundedAmount;
+    }
+
+    public void setFundedAmount(double fundedAmount) {
+        this.fundedAmount = fundedAmount;
     }
 } 

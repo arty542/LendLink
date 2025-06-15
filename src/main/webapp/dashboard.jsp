@@ -1,7 +1,4 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
-<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -24,15 +21,14 @@
         }
 
         .main-content {
-            margin-left: 60px; /* Initial collapsed sidebar width */
+            margin-left: 60px; 
             padding: 2rem 5%;
             flex-grow: 1;
-            transition: margin-left 0.3s ease; /* Smooth transition */
+            transition: margin-left 0.3s ease; 
         }
-
-        /* Adjust main content margin when sidebar is hovered */
+        
         body:has(.sidebar:hover) .main-content {
-            margin-left: 250px; /* Expanded sidebar width */
+            margin-left: 250px; 
         }
 
         .dashboard-container {
@@ -170,115 +166,164 @@
     <div class="main-content">
         <div class="dashboard-container">
             <h1 class="welcome-message">Your Dashboard</h1>
-
-            <c:if test="${not empty error}">
-                <div class="error">
-                    <c:out value="${error}"/>
-                </div>
-            </c:if>
-
-            <div class="dashboard-grid">
-                 <c:if test="${sessionScope.userRole == 'borrower' || sessionScope.userRole == 'both'}">
-                    <div class="dashboard-card">
-                        <h3>Loans Taken Out</h3>
-                        <p class="count"><c:out value="${dashboardData.loansTaken}"/></p>
-                        <a href="my-loans" class="card-link">View My Loans</a>
-                    </div>
-
-                    <div class="dashboard-card">
-                        <h3>Amount Borrowed</h3>
-                        <p class="amount">$<fmt:formatNumber value="${dashboardData.totalBorrowed}" pattern="#,##0.00"/></p>
-                        <a href="my-loans" class="card-link">View Details</a>
-                    </div>
-                </c:if>
-
-                <c:if test="${sessionScope.userRole == 'lender' || sessionScope.userRole == 'both'}">
-                     <div class="dashboard-card">
-                        <h3>Loans Funded</h3>
-                        <p class="count"><c:out value="${dashboardData.loansFunded}"/></p>
-                        <a href="my-fundings" class="card-link">View My Fundings</a>
-                    </div>
-
-                    <div class="dashboard-card">
-                        <h3>Total Amount Lent</h3>
-                        <p class="amount">$<fmt:formatNumber value="${dashboardData.totalLent}" pattern="#,##0.00"/></p>
-                        <a href="my-fundings" class="card-link">View Details</a>
-                    </div>
-
-                    <div class="dashboard-card">
-                        <h3>Available Loans</h3>
-                        <p class="count"><c:out value="${dashboardData.availableLoans}"/></p>
-                        <a href="browse-loans" class="card-link">Browse Loans</a>
-                    </div>
-                </c:if>
-
-                 <div class="dashboard-card wallet-summary">
-                     <h3>Wallet Balance</h3>
-                     <p class="balance">$<fmt:formatNumber value="${dashboardData.walletBalance}" pattern="#,##0.00"/></p>
-                     <a href="wallet" class="card-link">View Wallet</a>
-                 </div>
+            <div id="error-message" class="error" style="display:none;"></div>
+            <div class="dashboard-grid" id="dashboard-cards">
             </div>
 
             <div class="section-header">
                 <h2>Quick Actions</h2>
             </div>
-
-            <div style="margin-bottom: 2rem;">
-                 <c:if test="${sessionScope.userRole == 'borrower' || sessionScope.userRole == 'both'}">
-                    <a href="create-loan-request" class="button">Create New Loan Request</a>
-                </c:if>
-
-                <c:if test="${sessionScope.userRole == 'lender' || sessionScope.userRole == 'both'}">
-                    <a href="browse-loans" class="button">Browse Lending Opportunities</a>
-                </c:if>
+            <div id="quick-actions" style="margin-bottom: 2rem;">
             </div>
 
-             <div class="section-header">
-                 <h2>Recent Activity</h2>
-             </div>
-
-             <div class="recent-activity">
-                 <c:choose>
-                     <c:when test="${empty dashboardData.recentActivity}">
-                         <p>No recent activity to display.</p>
-                     </c:when>
-                     <c:otherwise>
-                         <c:forEach items="${dashboardData.recentActivity}" var="activity">
-                             <div class="activity-item">
-                                 <span class="activity-icon">
-                                     <i class="fas fa-hand-holding-usd"></i>
-                                 </span>
-                                 <div class="activity-details">
-                                     <p class="activity-description">
-                                         <c:choose>
-                                             <c:when test="${activity.type == 'funding'}">
-                                                 Funding of $<fmt:formatNumber value="${activity.amount}" pattern="#,##0.00"/> related to Transaction ID ${activity.transactionId} by ${activity.fromUserName}
-                                             </c:when>
-                                             <c:when test="${activity.type == 'repayment'}">
-                                                 Repayment of $<fmt:formatNumber value="${activity.amount}" pattern="#,##0.00"/> related to Transaction ID ${activity.transactionId} to ${activity.toUserName}
-                                             </c:when>
-                                             <c:when test="${activity.type == 'withdrawal'}">
-                                                 Withdrawal of $<fmt:formatNumber value="${activity.amount}" pattern="#,##0.00"/>
-                                             </c:when>
-                                             <c:when test="${activity.type == 'deposit'}">
-                                                 Deposit of $<fmt:formatNumber value="${activity.amount}" pattern="#,##0.00"/>
-                                             </c:when>
-                                             <c:otherwise>
-                                                 Transaction: ${activity.type}, Amount: $<fmt:formatNumber value="${activity.amount}" pattern="#,##0.00"/>
-                                             </c:otherwise>
-                                         </c:choose>
-                                     </p>
-                                     <span class="activity-date"><fmt:formatDate value="${activity.timestamp}" pattern="yyyy-MM-dd HH:mm"/></span>
-                                 </div>
-                                 <span class="activity-amount ${activity.type}">
-                                     ${activity.type == 'incoming' ? '+' : '-'}$<fmt:formatNumber value="${activity.amount}" pattern="#,##0.00"/>
-                                 </span>
-                             </div>
-                         </c:forEach>
-                     </c:otherwise>
-                 </c:choose>
-             </div>
+            <div class="section-header">
+                <h2>Recent Activity</h2>
+            </div>
+            <div id="recent-activity" class="recent-activity">
+            </div>
         </div>
     </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Show loading state
+            document.getElementById("dashboard-cards").innerHTML = '<div class="dashboard-card"><p>Loading...</p></div>';
+            
+            fetch("${pageContext.request.contextPath}/api/dashboard", {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (!response.ok) throw new Error("Failed to fetch dashboard data");
+                return response.json();
+            })
+            .then(data => {
+                renderDashboard(data);
+            })
+            .catch(error => {
+                document.getElementById("error-message").textContent = error.message;
+                document.getElementById("error-message").style.display = "block";
+                document.getElementById("dashboard-cards").innerHTML = '<div class="dashboard-card"><p>Error loading dashboard data</p></div>';
+            });
+
+            function renderDashboard(data) {
+                console.log('API data:', data);
+                console.log('loansTaken:', data.loansTaken, typeof data.loansTaken);
+                console.log('totalBorrowed:', data.totalBorrowed, typeof data.totalBorrowed);
+                console.log('walletBalance:', data.walletBalance, typeof data.walletBalance);
+
+                function safeMoney(val) {
+                    return (typeof val === 'number' && !isNaN(val)) ? val : '0.00';
+                }
+                function safeCount(val) {
+                    return (typeof val === 'number' && !isNaN(val)) ? val : 0;
+                }
+
+                const cards = document.getElementById("dashboard-cards");
+                const quickActions = document.getElementById("quick-actions");
+                const activity = document.getElementById("recent-activity");
+
+                // Clear existing content
+                cards.innerHTML = '';
+                quickActions.innerHTML = '';
+                activity.innerHTML = '';
+
+                const userRole = data.userRole || 'both';
+
+                if (userRole === 'borrower' || userRole === 'both') {
+                    cards.innerHTML +=
+                        '<div class="dashboard-card">' +
+                            '<h3>Loans Taken Out</h3>' +
+                            '<p class="count">' + safeCount(data.loansTaken) + '</p>' +
+                            '<a href="my-loans" class="card-link">View My Loans</a>' +
+                        '</div>' +
+                        '<div class="dashboard-card">' +
+                            '<h3>Amount Borrowed</h3>' +
+                            '<p class="amount">$' + safeMoney(data.totalBorrowed) + '</p>' +
+                            '<a href="my-loans" class="card-link">View Details</a>' +
+                        '</div>';
+
+                    quickActions.innerHTML +=
+                        '<a href="create-loan-request" class="button">Create New Loan Request</a>';
+                }
+
+                if (userRole === 'lender' || userRole === 'both') {
+                    cards.innerHTML +=
+                        '<div class="dashboard-card">' +
+                            '<h3>Loans Funded</h3>' +
+                            '<p class="count">' + safeCount(data.loansFunded) + '</p>' +
+                            '<a href="my-loans" class="card-link">View My Fundings</a>' +
+                        '</div>' +
+                        '<div class="dashboard-card">' +
+                            '<h3>Total Amount Lent</h3>' +
+                            '<p class="amount">$' + safeMoney(data.totalLent) + '</p>' +
+                            '<a href="my-loans" class="card-link">View Details</a>' +
+                        '</div>' +
+                        '<div class="dashboard-card">' +
+                            '<h3>Available Loans</h3>' +
+                            '<p class="count">' + safeCount(data.availableLoans) + '</p>' +
+                            '<a href="browse-loans" class="card-link">Browse Loans</a>' +
+                        '</div>';
+
+                    quickActions.innerHTML +=
+                        '<a href="browse-loans" class="button">Browse Lending Opportunities</a>';
+                }
+
+                cards.innerHTML +=
+                    '<div class="dashboard-card wallet-summary">' +
+                        '<h3>Wallet Balance</h3>' +
+                        '<p class="balance">$' + safeMoney(data.walletBalance) + '</p>' +
+                        '<a href="wallet" class="card-link">View Wallet</a>' +
+                    '</div>';
+
+                if (!data.recentActivity || data.recentActivity.length === 0) {
+                    activity.innerHTML = '<p>No recent activity to display.</p>';
+                } else {
+                    data.recentActivity.forEach(function(act) {
+                        var description = '';
+                        if (act.type === 'funding') {
+                            description = 'Funding of $' + safeMoney(act.amount) + ' related to Transaction ID ' + act.transactionId + ' by ' + act.fromUserName;
+                        } else if (act.type === 'repayment') {
+                            description = 'Repayment of $' + safeMoney(act.amount) + ' related to Transaction ID ' + act.transactionId + ' to ' + act.toUserName;
+                        } else if (act.type === 'withdrawal') {
+                            description = 'Withdrawal of $' + safeMoney(act.amount);
+                        } else if (act.type === 'deposit') {
+                            description = 'Deposit of $' + safeMoney(act.amount);
+                        } else {
+                            description = 'Transaction: ' + act.type + ', Amount: $' + safeMoney(act.amount);
+                        }
+
+                        var amountClass = act.type === 'incoming' ? 'incoming' : 'outgoing';
+                        var amountPrefix = act.type === 'incoming' ? '+' : '-';
+                        var formattedDate = new Date(act.timestamp).toLocaleString();
+
+                        activity.innerHTML +=
+                            '<div class="activity-item">' +
+                                '<span class="activity-icon">' +
+                                    '<i class="fas fa-hand-holding-usd"></i>' +
+                                '</span>' +
+                                '<div class="activity-details">' +
+                                    '<p class="activity-description">' + description + '</p>' +
+                                    '<span class="activity-date">' + formattedDate + '</span>' +
+                                '</div>' +
+                                '<span class="activity-amount ' + amountClass + '">' +
+                                    amountPrefix + '$' + safeMoney(act.amount) +
+                                '</span>' +
+                            '</div>';
+                    });
+                }
+            }
+        });
+    </script>
 </body>
-</html> 
+</html>
+
+
+
+
+
+

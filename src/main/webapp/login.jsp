@@ -145,6 +145,29 @@
             color: #e74c3c;
             margin-bottom: 1rem;
             text-align: center;
+            display: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -164,13 +187,9 @@
                 <p>Sign in to your account</p>
             </div>
 
-            <% if(request.getAttribute("error") != null) { %>
-                <div class="error">
-                    <%= request.getAttribute("error") %>
-                </div>
-            <% } %>
+            <div id="error-message" class="error"></div>
 
-            <form action="login" method="post">
+            <form id="login-form" onsubmit="return handleLogin(event)">
                 <div class="form-group">
                     <label for="email">Email</label>
                     <input type="email" id="email" name="email" required>
@@ -181,7 +200,8 @@
                     <input type="password" id="password" name="password" required>
                 </div>
                 
-                <button type="submit" class="button">Sign In</button>
+                <button type="submit" class="button" id="login-button">Sign In</button>
+                <div id="loading" class="loading"></div>
             </form>
             
             <div class="register-link">
@@ -189,5 +209,85 @@
             </div>
         </div>
     </div>
+
+    <script>
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('login-button').disabled = true;
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('login-button').disabled = false;
+        }
+
+        function handleLogin(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            // Show loading state
+            const submitBtn = document.getElementById('login-button');
+            if (submitBtn) {
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
+                submitBtn.disabled = true;
+            }
+            
+            // Clear previous errors
+            const errorDiv = document.getElementById('error-message');
+            if (errorDiv) {
+                errorDiv.innerHTML = '';
+                errorDiv.style.display = 'none';
+            }
+            
+            fetch('${pageContext.request.contextPath}/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    email: email,
+                    password: password
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.error || 'Login failed');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.user) {
+                    // Redirect to dashboard servlet instead of dashboard.jsp
+                    window.location.href = '${pageContext.request.contextPath}/dashboard';
+                } else {
+                    showError('Invalid email or password');
+                }
+            })
+            .catch(error => {
+                console.error('Login error:', error);
+                if (errorDiv) {
+                    errorDiv.innerHTML = error.message || 'An error occurred during login';
+                    errorDiv.style.display = 'block';
+                }
+            })
+            .finally(() => {
+                if (submitBtn) {
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }
+            });
+        }
+    </script>
 </body>
 </html> 

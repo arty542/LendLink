@@ -6,7 +6,6 @@
 <head>
     <meta charset="UTF-8">
     <title>My Wallet - LendLink</title>
-    <link rel="stylesheet" href="css/style.css">
     <style>
         .wallet-container {
             max-width: 800px;
